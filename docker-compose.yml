@@ -1,0 +1,45 @@
+version: "3.9"
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    env_file:
+      - .env
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+    # Если используете sqlite, можно оставить без depends_on и без postgres
+    # volumes:
+    #   - ./data:/data
+    # environment:
+    #   DB_DIALECT: sqlite
+    #   DB_DSN: file:/data/radiokpowka.db?_foreign_keys=on
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    environment:
+      # В проде лучше собрать с корректными VITE_* на этапе build (см. README)
+      - NGINX_PORT=80
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: rk
+      POSTGRES_PASSWORD: rk
+      POSTGRES_DB: rk
+    ports:
+      - "5432:5432"
+    volumes:
+      - rk_pg:/var/lib/postgresql/data
+
+volumes:
+  rk_pg: {}

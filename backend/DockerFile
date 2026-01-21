@@ -1,0 +1,25 @@
+# Purpose: Build Go backend, install ffmpeg + yt-dlp for server-side audio streaming.
+
+FROM golang:1.22 AS build
+WORKDIR /app
+COPY backend/go.mod backend/go.sum ./backend/
+WORKDIR /app/backend
+RUN go mod download
+COPY backend ./backend
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /out/radiokpowka ./main.go
+
+FROM debian:bookworm-slim
+WORKDIR /srv
+
+# Install ffmpeg + yt-dlp
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates ffmpeg python3 python3-pip \
+  && pip3 install --no-cache-dir yt-dlp \
+  && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+COPY --from=build /out/radiokpowka /usr/local/bin/radiokpowka
+
+ENV PORT=8080
+EXPOSE 8080
+
+CMD ["radiokpowka"]
