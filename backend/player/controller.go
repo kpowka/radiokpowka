@@ -193,19 +193,17 @@ func (c *Controller) SetVolume(v float64) {
 }
 
 func (c *Controller) AddTrack(url string, addedByUser *uuid.UUID, addedByNick string, insertNext bool, isDonation bool) (string, error) {
-	// Resolve meta
-	meta, err := c.yt.ResolveMeta(context.Background(), url)
+	// Resolve meta(s)
+	metas, err := c.yt.ResolveMetas(context.Background(), url)
 	if err != nil {
 		return "", err
+	}
+	if len(metas) == 0 {
+		return "", errors.New("no tracks resolved")
 	}
 
 	tx := c.db.Begin()
 	defer func() { _ = tx.Rollback() }()
-
-	t, err := addTrack(tx, meta.WebpageURL, meta.Title, meta.DurationSec, addedByUser, addedByNick)
-	if err != nil {
-		return "", err
-	}
 
 	// Determine insert position
 	pos, err := maxPosition(tx)
@@ -222,15 +220,38 @@ func (c *Controller) AddTrack(url string, addedByUser *uuid.UUID, addedByNick st
 		var cur struct{ Position int }
 		if err := tx.Table("queue_entries").Select("position").Where("status = ?", "current").Scan(&cur).Error; err == nil && cur.Position > 0 {
 			insertPos = cur.Position + 1
-			if err := shiftPositionsFrom(tx, insertPos); err != nil {
+			if err := shiftPositionsFrom(tx, insertPos, len(metas)); err != nil {
 				return "", err
 			}
 		}
 	}
 
-	q, err := insertQueueEntry(tx, t.ID, insertPos, status, isDonation)
-	if err != nil {
-		return "", err
+	inserted := make([]struct {
+		queueID string
+		track   TrackDTO
+	}, 0, len(metas))
+	for i, meta := range metas {
+		t, err := addTrack(tx, meta.WebpageURL, meta.Title, meta.DurationSec, addedByUser, addedByNick)
+		if err != nil {
+			return "", err
+		}
+
+		q, err := insertQueueEntry(tx, t.ID, insertPos+i, status, isDonation)
+		if err != nil {
+			return "", err
+		}
+		inserted = append(inserted, struct {
+			queueID string
+			track   TrackDTO
+		}{
+			queueID: q.ID.String(),
+			track: TrackDTO{
+				ID:          t.ID.String(),
+				Title:       t.Title,
+				URL:         t.SourceURL,
+				AddedByNick: t.AddedByNick,
+			},
+		})
 	}
 
 	if err := ensureQueueHasCurrent(tx); err != nil {
@@ -245,17 +266,19 @@ func (c *Controller) AddTrack(url string, addedByUser *uuid.UUID, addedByNick st
 	_ = c.refreshCurrentFromDB()
 
 	// broadcast
-	c.hub.Broadcast(websocket.Event{Type: websocket.EventTrackAdded, Data: map[string]any{
-		"id":          q.ID.String(),
-		"title":       t.Title,
-		"url":         t.SourceURL,
-		"addedByNick": t.AddedByNick,
-		"isDonation":  isDonation,
-	}})
+	for _, item := range inserted {
+		c.hub.Broadcast(websocket.Event{Type: websocket.EventTrackAdded, Data: map[string]any{
+			"id":          item.queueID,
+			"title":       item.track.Title,
+			"url":         item.track.URL,
+			"addedByNick": item.track.AddedByNick,
+			"isDonation":  isDonation,
+		}})
+	}
 	c.broadcastQueue()
 	c.broadcastState()
 
-	return q.ID.String(), nil
+	return inserted[0].queueID, nil
 }
 
 func (c *Controller) ListQueue() ([]QueueEntryDTO, error) {

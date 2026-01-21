@@ -33,13 +33,13 @@ func ensureQueueHasCurrent(tx *gorm.DB) error {
 func listQueue(tx *gorm.DB) ([]QueueEntryDTO, error) {
 	// join queue_entries + tracks
 	type row struct {
-		QID        string
-		Status     string
-		Position   int
-		AddedAt    time.Time
-		IsDonation bool
-		Title      string
-		URL        string
+		QID         string
+		Status      string
+		Position    int
+		AddedAt     time.Time
+		IsDonation  bool
+		Title       string
+		URL         string
 		AddedByNick string
 	}
 	var rows []row
@@ -107,11 +107,14 @@ func insertQueueEntry(tx *gorm.DB, trackID uuid.UUID, pos int, status string, is
 	return q, nil
 }
 
-func shiftPositionsFrom(tx *gorm.DB, fromPos int) error {
-	// shift all >= fromPos by +1
+func shiftPositionsFrom(tx *gorm.DB, fromPos int, delta int) error {
+	// shift all >= fromPos by delta
+	if delta <= 0 {
+		return nil
+	}
 	return tx.Model(&db.QueueEntry{}).
 		Where("position >= ?", fromPos).
-		Update("position", gorm.Expr("position + 1")).Error
+		Update("position", gorm.Expr("position + ?", delta)).Error
 }
 
 func nextTrack(tx *gorm.DB) (db.QueueEntry, db.Track, error) {

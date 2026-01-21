@@ -10,7 +10,16 @@ import type { PlayerState, QueueEntry } from "./api";
 export type WsEvent =
   | { type: "player_state"; data: PlayerState }
   | { type: "queue_update"; data: QueueEntry[] }
-  | { type: "track_added"; data: { entry: QueueEntry } }
+  | {
+      type: "track_added";
+      data: {
+        id: string;
+        title: string;
+        url: string;
+        addedByNick?: string;
+        isDonation?: boolean;
+      };
+    }
   | { type: "donation_received"; data: { donorNick: string; trackUrl?: string; message: string } }
   | { type: "auth_update"; data: { role: "owner" | "listener" } };
 
@@ -96,7 +105,15 @@ export class WsClient {
         store.setQueue(evt.data);
         break;
       case "track_added":
-        store.pushQueue(evt.data.entry);
+        store.pushQueue({
+          id: evt.data.id,
+          title: evt.data.title,
+          url: evt.data.url,
+          addedByNick: evt.data.addedByNick,
+          addedAt: new Date().toISOString(),
+          isDonation: evt.data.isDonation,
+          status: "next"
+        });
         break;
       case "donation_received":
         store.showDonationPreview(evt.data);

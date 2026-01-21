@@ -11,10 +11,10 @@ import (
 )
 
 type playlistAddReq struct {
-	URL        string `json:"url"`
+	URL         string `json:"url"`
 	AddedByNick string `json:"added_by_nick,omitempty"`
-	InsertNext bool   `json:"insert_next,omitempty"`
-	IsDonation bool   `json:"is_donation,omitempty"`
+	InsertNext  bool   `json:"insert_next,omitempty"`
+	IsDonation  bool   `json:"is_donation,omitempty"`
 }
 
 func PlaylistListHandler(deps RouterDeps) gin.HandlerFunc {
@@ -31,8 +31,8 @@ func PlaylistListHandler(deps RouterDeps) gin.HandlerFunc {
 func PlaylistAddHandler(deps RouterDeps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req playlistAddReq
-		if err := c.ShouldBindJSON(&req); err != nil || req.URL == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid payload"})
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 

@@ -3,6 +3,7 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 	"time"
 
@@ -32,7 +33,7 @@ func LoginHandler(deps RouterDeps) gin.HandlerFunc {
 
 		var u db.User
 		if err := deps.DB.Where("username = ?", req.Username).First(&u).Error; err != nil {
-			if err == gorm.ErrRecordNotFound {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
 				c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
 				return
 			}
