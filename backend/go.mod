@@ -1,4 +1,4 @@
-module radiokpowka
+module radiokpowka/backend
 
 go 1.24.0
 

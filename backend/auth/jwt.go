@@ -4,6 +4,7 @@ package auth
 
 import (
 	"errors"
+	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
@@ -29,7 +30,7 @@ func SignJWT(secret string, c Claims) (string, error) {
 		UserID: c.UserID.String(),
 		Role:   c.Role,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDateFromSeconds(c.Exp),
+			ExpiresAt: jwt.NewNumericDate(time.Unix(c.Exp, 0)),
 		},
 	}
 	t := jwt.NewWithClaims(jwt.SigningMethodHS256, jc)

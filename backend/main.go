@@ -25,6 +25,10 @@ func main() {
 		log.Fatalf("db connect failed: %v", err)
 	}
 
+	if err := db.AutoMigrate(database); err != nil {
+		log.Fatalf("migrate failed: %v", err)
+	}
+
 	if err := db.SeedAdmin(database, cfg); err != nil {
 		log.Fatalf("seed admin failed: %v", err)
 	}
@@ -35,12 +39,12 @@ func main() {
 	if cfg.RunTwitchBot {
 		go func() {
 			if err := bot.Run(bot.Config{
-				Nick:                 cfg.TwitchNick,
-				OAuthToken:           cfg.TwitchOAuthToken,
-				Channel:              cfg.TwitchChannel,
-				SpamEnabled:          cfg.TwitchSpamEnabled,
-				SpamMax:              cfg.TwitchSpamMax,
-				SpamDelay:            time.Duration(cfg.TwitchSpamDelayMs) * time.Millisecond,
+				Nick:                  cfg.TwitchNick,
+				OAuthToken:            cfg.TwitchOAuthToken,
+				Channel:               cfg.TwitchChannel,
+				SpamEnabled:           cfg.TwitchSpamEnabled,
+				SpamMax:               cfg.TwitchSpamMax,
+				SpamDelay:             time.Duration(cfg.TwitchSpamDelayMs) * time.Millisecond,
 				GlobalRateLimitPerMin: cfg.TwitchRateLimitPerMin,
 				GetCurrentTrackText: func() string {
 					// The bot will call backend logic via HTTP in a future iteration.

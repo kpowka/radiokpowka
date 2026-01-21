@@ -28,3 +28,6 @@ body {
 *::-webkit-scrollbar-track {
   background: transparent;
 }
+.test-tailwind {
+  @apply text-red-500;
+}
