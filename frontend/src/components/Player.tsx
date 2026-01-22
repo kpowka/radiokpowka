@@ -27,6 +27,7 @@ export function Player({
   const [progress, setProgress] = React.useState(0);
 
   const isOwner = role === "owner";
+  const controlsDisabled = role === "unknown";
 
   // Pull initial state on mount (WS will keep it fresh later)
   React.useEffect(() => {
@@ -164,13 +165,13 @@ export function Player({
 
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="flex flex-wrap items-center gap-2">
-            <ControlButton onClick={prev} disabled={!isOwner} label="Prev" icon="⏮" />
+            <ControlButton onClick={prev} disabled={controlsDisabled} label="Prev" icon="⏮" />
             {player?.isPaused || !player?.isPlaying ? (
-              <ControlButton onClick={play} disabled={!isOwner} label="Play" icon="▶" primary />
+              <ControlButton onClick={play} disabled={controlsDisabled} label="Play" icon="▶" primary />
             ) : (
-              <ControlButton onClick={pause} disabled={!isOwner} label="Pause" icon="⏸" primary />
+              <ControlButton onClick={pause} disabled={controlsDisabled} label="Pause" icon="⏸" primary />
             )}
-            <ControlButton onClick={next} disabled={!isOwner} label="Next" icon="⏭" />
+            <ControlButton onClick={next} disabled={controlsDisabled} label="Next" icon="⏭" />
           </div>
 
           <div className="flex items-center gap-3">

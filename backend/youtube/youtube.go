@@ -50,49 +50,70 @@ func (c *Client) ResolveMeta(ctx context.Context, url string) (Meta, error) {
 }
 
 func (c *Client) ResolveMetas(ctx context.Context, url string) ([]Meta, error) {
-	// yt-dlp --dump-single-json URL (supports playlists)
+	// Prefer --dump-single-json if supported, fallback to --dump-json lines.
 	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
 
-<<<<<<< ours
-	cmd := exec.CommandContext(ctx, c.cfg.YTDLPPath, "--dump-single-json", url)
-	var out bytes.Buffer
-	var errb bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &errb
-
-	if err := cmd.Run(); err != nil {
-		return nil, errors.New(strings.TrimSpace(errb.String()))
+	if out, err := runYTDLP(ctx, c.cfg.YTDLPPath, "--dump-single-json", url); err == nil {
+		if metas, err := parseMetasFromJSON(out, url); err == nil && len(metas) > 0 {
+			return metas, nil
+		}
 	}
 
-	var raw map[string]any
-	if err := json.Unmarshal(out.Bytes(), &raw); err != nil {
-=======
-	out, err := runYTDLP(ctx, c.cfg.YTDLPPath, "--dump-single-json", url)
+	out, err := runYTDLP(ctx, c.cfg.YTDLPPath, "--dump-json", url)
 	if err != nil {
 		return nil, err
 	}
 
-	var raw map[string]any
-	if err := json.Unmarshal(out, &raw); err != nil {
->>>>>>> theirs
+	metas, err := parseMetasFromLines(out, url)
+	if err != nil {
 		return nil, err
 	}
+	if len(metas) == 0 {
+		return nil, errors.New("no tracks resolved")
+	}
+	return metas, nil
+}
 
-	if entries, ok := raw["entries"].([]any); ok {
-		metas := make([]Meta, 0, len(entries))
-		for _, entry := range entries {
+func parseMetasFromJSON(out []byte, fallbackURL string) ([]Meta, error) {
+	var raw map[string]any
+	if err := json.Unmarshal(out, &raw); err != nil {
+		return nil, err
+	}
+	return parseMetasFromMap(raw, fallbackURL), nil
+}
+
+func parseMetasFromLines(out []byte, fallbackURL string) ([]Meta, error) {
+	entries := strings.Split(strings.TrimSpace(string(out)), "\n")
+	metas := make([]Meta, 0, len(entries))
+	for _, line := range entries {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		var raw map[string]any
+		if err := json.Unmarshal([]byte(line), &raw); err != nil {
+			return nil, err
+		}
+		metas = append(metas, parseMetasFromMap(raw, fallbackURL)...)
+	}
+	return metas, nil
+}
+
+func parseMetasFromMap(raw map[string]any, fallbackURL string) []Meta {
+	if nested, ok := raw["entries"].([]any); ok {
+		metas := make([]Meta, 0, len(nested))
+		for _, entry := range nested {
 			entryMap, ok := entry.(map[string]any)
 			if !ok || len(entryMap) == 0 {
 				continue
 			}
-			meta := metaFromMap(entryMap, url)
+			meta := metaFromMap(entryMap, fallbackURL)
 			metas = append(metas, meta)
 		}
-		return metas, nil
+		return metas
 	}
-
-	return []Meta{metaFromMap(raw, url)}, nil
+	return []Meta{metaFromMap(raw, fallbackURL)}
 }
 
 func metaFromMap(raw map[string]any, fallbackURL string) Meta {

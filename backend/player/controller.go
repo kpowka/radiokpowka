@@ -47,6 +47,7 @@ func NewController(d ControllerDeps) *Controller {
 
 	// initialize current from DB if exists
 	_ = c.refreshCurrentFromDB()
+	c.autoStartIfStopped()
 
 	// broadcast initial state
 	c.broadcastState()
@@ -264,6 +265,7 @@ func (c *Controller) AddTrack(url string, addedByUser *uuid.UUID, addedByNick st
 
 	// refresh current runtime if empty
 	_ = c.refreshCurrentFromDB()
+	c.autoStartIfStopped()
 
 	// broadcast
 	for _, item := range inserted {
@@ -330,6 +332,23 @@ func (c *Controller) applyCurrentLocked(qid, tid, title, url, addedBy string, du
 	} else {
 		c.rt.startedAt = time.Time{}
 	}
+}
+
+func (c *Controller) autoStartIfStopped() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.rt.currentTrackID == "" {
+		return
+	}
+	if c.rt.isPlaying {
+		return
+	}
+
+	c.rt.isPlaying = true
+	c.rt.isPaused = false
+	c.rt.basePosSec = 0
+	c.rt.startedAt = time.Now().UTC()
 }
 
 func (c *Controller) positionLocked() int {
