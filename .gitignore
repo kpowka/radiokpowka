@@ -11,6 +11,7 @@ backend/tmp
 .env
 .env.*
 !.env.example
+cookies.txt
 
 # OS
 .DS_Store
