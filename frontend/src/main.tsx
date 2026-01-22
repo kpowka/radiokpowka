@@ -16,8 +16,13 @@ function Root() {
 
   React.useEffect(() => {
     const el = document.documentElement;
-    if (theme === "dark") el.classList.add("dark");
-    else el.classList.remove("dark");
+    if (theme === "dark") {
+      el.classList.add("dark");
+      el.style.colorScheme = "dark";
+    } else {
+      el.classList.remove("dark");
+      el.style.colorScheme = "light";
+    }
   }, [theme]);
 
   React.useEffect(() => {

@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -14,8 +15,9 @@ import (
 )
 
 type Config struct {
-	YTDLPPath  string
-	FFMPEGPath string
+	YTDLPPath          string
+	FFMPEGPath         string
+	CookiesFromBrowser string
 }
 
 type Client struct {
@@ -28,6 +30,9 @@ func NewClient(cfg Config) *Client {
 	}
 	if cfg.FFMPEGPath == "" {
 		cfg.FFMPEGPath = "ffmpeg"
+	}
+	if cfg.CookiesFromBrowser == "" {
+		log.Printf("ПРЕДУПРЕЖДЕНИЕ: YTDLP_COOKIES_FROM_BROWSER не задан, возможны ошибки авторизации YouTube.")
 	}
 	return &Client{cfg: cfg}
 }
@@ -54,13 +59,13 @@ func (c *Client) ResolveMetas(ctx context.Context, url string) ([]Meta, error) {
 	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
 
-	if out, err := runYTDLP(ctx, c.cfg.YTDLPPath, "--dump-single-json", url); err == nil {
+	if out, err := c.runYTDLP(ctx, "--dump-single-json", url); err == nil {
 		if metas, err := parseMetasFromJSON(out, url); err == nil && len(metas) > 0 {
 			return metas, nil
 		}
 	}
 
-	out, err := runYTDLP(ctx, c.cfg.YTDLPPath, "--dump-json", url)
+	out, err := c.runYTDLP(ctx, "--dump-json", url)
 	if err != nil {
 		return nil, err
 	}
@@ -160,7 +165,7 @@ func (c *Client) DirectAudioURL(ctx context.Context, url string) (string, error)
 	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
 
-	out, err := runYTDLP(ctx, c.cfg.YTDLPPath, "-f", "bestaudio", "-g", "--no-playlist", url)
+	out, err := c.runYTDLP(ctx, "-f", "bestaudio", "-g", "--no-playlist", url)
 	if err != nil {
 		return "", err
 	}
@@ -175,19 +180,44 @@ func (c *Client) FFMPEGPath() string {
 	return c.cfg.FFMPEGPath
 }
 
-func runYTDLP(ctx context.Context, path string, args ...string) ([]byte, error) {
-	cmd := exec.CommandContext(ctx, path, args...)
+func (c *Client) runYTDLP(ctx context.Context, args ...string) ([]byte, error) {
+	fullArgs := make([]string, 0, len(args)+2)
+	if c.cfg.CookiesFromBrowser != "" {
+		fullArgs = append(fullArgs, "--cookies-from-browser", c.cfg.CookiesFromBrowser)
+	}
+	fullArgs = append(fullArgs, args...)
+
+	cmd := exec.CommandContext(ctx, c.cfg.YTDLPPath, fullArgs...)
 	var out bytes.Buffer
 	var errb bytes.Buffer
 	cmd.Stdout = &out
 	cmd.Stderr = &errb
 
 	if err := cmd.Run(); err != nil {
-		msg := strings.TrimSpace(errb.String())
+		stdoutText := strings.TrimSpace(out.String())
+		stderrText := strings.TrimSpace(errb.String())
+		log.Printf("yt-dlp stdout: %s", trimForLog(stdoutText))
+		log.Printf("yt-dlp stderr: %s", trimForLog(stderrText))
+		msg := stderrText
 		if msg == "" {
 			msg = err.Error()
 		}
 		return nil, errors.New(msg)
 	}
+	stdoutText := strings.TrimSpace(out.String())
+	stderrText := strings.TrimSpace(errb.String())
+	log.Printf("yt-dlp stdout: %s", trimForLog(stdoutText))
+	log.Printf("yt-dlp stderr: %s", trimForLog(stderrText))
 	return out.Bytes(), nil
+}
+
+func trimForLog(s string) string {
+	const maxLen = 2000
+	if s == "" {
+		return "<пусто>"
+	}
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen] + "...(обрезано)"
 }

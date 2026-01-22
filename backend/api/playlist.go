@@ -32,7 +32,11 @@ func PlaylistAddHandler(deps RouterDeps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req playlistAddReq
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "некорректный JSON: " + err.Error()})
+			return
+		}
+		if req.URL == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "поле url обязательно"})
 			return
 		}
 
@@ -53,7 +57,7 @@ func PlaylistAddHandler(deps RouterDeps) gin.HandlerFunc {
 
 		_, err := deps.Player.AddTrack(req.URL, addedByUser, addedByNick, req.InsertNext, req.IsDonation)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "не удалось добавить трек: " + err.Error()})
 			return
 		}
 

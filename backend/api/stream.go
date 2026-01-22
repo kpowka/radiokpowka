@@ -18,6 +18,7 @@ func StreamHandler(deps RouterDeps) gin.HandlerFunc {
 			c.String(http.StatusInternalServerError, "stream: flusher not supported")
 			return
 		}
+		flusher.Flush()
 
 		// ВАЖНО: сначала решаем “можем ли стримить”, чтобы не отдавать 200 и потом молча падать.
 		// Если в твоём Player есть State() — используй её.

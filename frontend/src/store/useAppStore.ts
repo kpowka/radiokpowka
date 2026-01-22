@@ -15,6 +15,8 @@ type DonationPreview = {
   message: string;
 } | null;
 
+const THEME_STORAGE_KEY = "rk-theme";
+
 type AppState = {
   auth: {
     token: string | null;
@@ -60,8 +62,23 @@ type AppState = {
 };
 
 function getInitialTheme(): "dark" | "light" {
-  // по умолчанию — dark, но можно переключать в UI
-  return "dark";
+  if (typeof window === "undefined") {
+    return "dark";
+  }
+
+  try {
+    const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
+    if (stored === "dark" || stored === "light") {
+      return stored;
+    }
+  } catch {
+    // локальное хранилище может быть недоступно
+  }
+
+  if (window.matchMedia?.("(prefers-color-scheme: dark)").matches) {
+    return "dark";
+  }
+  return "light";
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -101,5 +118,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   showDonationPreview: (p) => set({ ui: { ...get().ui, donationPreview: p } }),
   clearDonationPreview: () => set({ ui: { ...get().ui, donationPreview: null } }),
 
-  setTheme: (t) => set({ ui: { ...get().ui, theme: t } })
+  setTheme: (t) => {
+    try {
+      window.localStorage.setItem(THEME_STORAGE_KEY, t);
+    } catch {
+      // локальное хранилище может быть недоступно
+    }
+    set({ ui: { ...get().ui, theme: t } });
+  }
 }));

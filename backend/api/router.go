@@ -42,8 +42,9 @@ func NewRouter(cfg config.Config, database *gorm.DB) http.Handler {
 	go hub.Run()
 
 	yt := youtube.NewClient(youtube.Config{
-		YTDLPPath: getEnvDefault("YTDLP_PATH", "yt-dlp"),
-		FFMPEGPath: getEnvDefault("FFMPEG_PATH", "ffmpeg"),
+		YTDLPPath:          cfg.YTDLPPath,
+		FFMPEGPath:         cfg.FFMPEGPath,
+		CookiesFromBrowser: cfg.YTDLPCookiesFromBrowser,
 	})
 
 	ctrl := player.NewController(player.ControllerDeps{
@@ -91,18 +92,4 @@ func NewRouter(cfg config.Config, database *gorm.DB) http.Handler {
 	owner.POST("/integrations/donx/connect", DonXConnectHandler(deps))
 
 	return r
-}
-
-// small helper local to router.go (no new package)
-func getEnvDefault(k, def string) string {
-	if v := httpEnv(k); v != "" {
-		return v
-	}
-	return def
-}
-
-func httpEnv(k string) string {
-	// avoid importing os into many files; keep it here
-	// (ok for scaffold)
-	return getenv(k)
 }

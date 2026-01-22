@@ -2,9 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Базовые токены темы (темная/светлая). UI-компоненты подключим во 2-й части. */
+/* Базовые токены темы: управляем через класс .dark. */
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
+}
+
+.dark {
+  color-scheme: dark;
 }
 
 html,
