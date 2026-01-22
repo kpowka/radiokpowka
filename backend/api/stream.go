@@ -1,11 +1,9 @@
-// Purpose: Audio stream endpoint. No YouTube video on client.
-// Strategy:
-// - If server paused -> stream silence (so clients don't error-loop).
-// - If playing -> spawn ffmpeg against yt-dlp direct audio URL, seek to server position.
+// Purpose: Audio stream endpoint. Pipes MP3 audio to clients.
 
 package api
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -13,21 +11,40 @@ import (
 
 func StreamHandler(deps RouterDeps) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// audio/mpeg streaming
-		c.Header("Content-Type", "audio/mpeg")
-		c.Header("Cache-Control", "no-store")
-		c.Header("X-Content-Type-Options", "nosniff")
+		log.Printf("stream: start client=%s ua=%s", c.ClientIP(), c.Request.UserAgent())
 
 		flusher, ok := c.Writer.(http.Flusher)
 		if !ok {
-			c.Status(http.StatusInternalServerError)
+			c.String(http.StatusInternalServerError, "stream: flusher not supported")
 			return
 		}
 
-		ctx := c.Request.Context()
-		if err := deps.Player.StreamTo(ctx, c.Writer, flusher); err != nil {
-			// If client disconnects, ctx will be canceled: ignore noisy errors
+		// ВАЖНО: сначала решаем “можем ли стримить”, чтобы не отдавать 200 и потом молча падать.
+		// Если в твоём Player есть State() — используй её.
+		st := deps.Player.State()
+		if st.IsPaused {
+			c.String(http.StatusConflict, "server paused")
 			return
 		}
+		if st.Current == nil || st.Current.URL == "" {
+			c.String(http.StatusNotFound, "no current track")
+			return
+		}
+
+		// Заголовки + статус + первый flush
+		c.Header("Content-Type", "audio/mpeg")
+		c.Header("Cache-Control", "no-store")
+		c.Header("X-Content-Type-Options", "nosniff")
+		c.Status(http.StatusOK)
+		flusher.Flush()
+
+		ctx := c.Request.Context()
+		if err := deps.Player.StreamTo(ctx, c.Writer, flusher); err != nil {
+			// Теперь ты УВИДИШЬ причину, а не “тишину”
+			log.Printf("stream: error: %v", err)
+			return
+		}
+
+		log.Printf("stream: done client=%s", c.ClientIP())
 	}
 }

@@ -30,8 +30,9 @@ type Config struct {
 	WebhookSecret string
 
 	// Tools
-	YTDLPPath  string
-	FFMPEGPath string
+	YTDLPPath               string
+	FFMPEGPath              string
+	YTDLPCookiesFromBrowser string
 
 	// Twitch bot (optional)
 	RunTwitchBot          bool
@@ -65,6 +66,7 @@ func MustLoad() Config {
 
 	ytDlp := getEnv("YTDLP_PATH", "yt-dlp")
 	ffmpeg := getEnv("FFMPEG_PATH", "ffmpeg")
+	cookiesFromBrowser := strings.TrimSpace(os.Getenv("YTDLP_COOKIES_FROM_BROWSER"))
 
 	runBot := getEnvBool("RUN_TWITCH_BOT", false)
 	tNick := getEnv("TWITCH_NICK", "")
@@ -90,8 +92,9 @@ func MustLoad() Config {
 
 		WebhookSecret: webhookSecret,
 
-		YTDLPPath:  ytDlp,
-		FFMPEGPath: ffmpeg,
+		YTDLPPath:               ytDlp,
+		FFMPEGPath:              ffmpeg,
+		YTDLPCookiesFromBrowser: cookiesFromBrowser,
 
 		RunTwitchBot:          runBot,
 		TwitchNick:            tNick,
